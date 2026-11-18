@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilt meter</title>
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tilt">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --fg: #111; --bg: #fff; --muted: #666; --line: #ddd;
+          --ok: #0a7d32; --near: #b36b00; --off: #c0262d; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #f2f2f2; --bg: #000; --muted: #9a9a9a; --line: #333;
+            --ok: #3ccf6b; --near: #ffb547; --off: #ff6b6b; }
+    .advice.ok, .advice.near, .advice.off { color: #000; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+               font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+               -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  main { max-width: 34rem; margin: 0 auto; padding: 1rem 1.2rem 2rem; display: flex; flex-direction: column; gap: .9rem; }
+  header { display: flex; justify-content: space-between; align-items: baseline; }
+  h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+  .steady { font-size: .9rem; color: var(--muted); }
+  .steady.yes { color: var(--ok); font-weight: 600; }
+  .label { font-size: .95rem; color: var(--muted); text-align: center; margin-bottom: -.6rem; }
+  #pitch { font-size: min(30vw, 9rem); font-weight: 700; text-align: center; line-height: 1.05;
+           font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  #pitch.held { color: var(--near); }
+  #pitch.stale { opacity: .3; }
+  .badges { display: flex; justify-content: center; gap: .5rem; min-height: 1.6rem; }
+  .badge { font-size: .9rem; font-weight: 700; padding: .15rem .55rem; border-radius: .4rem;
+           border: 2px solid var(--near); color: var(--near); }
+  .badge[hidden] { display: none; }
+  .advice { font-size: 1.45rem; font-weight: 700; text-align: center; padding: .7rem; border-radius: .7rem;
+            color: #fff; background: var(--muted); }
+  .advice.ok { background: var(--ok); } .advice.near { background: var(--near); } .advice.off { background: var(--off); }
+  #roll { text-align: center; font-size: 1.15rem; }
+  button { font: inherit; font-size: 1.15rem; padding: .85rem 1rem; border-radius: .7rem; border: 1px solid var(--line);
+           background: transparent; color: var(--fg); }
+  button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700; }
+  .row { display: flex; gap: .6rem; } .row > * { flex: 1; }
+  #status { background: #fff4d6; color: #5a3f00; border-radius: .6rem; padding: .7rem .9rem; font-size: 1rem; }
+  details { border-top: 1px solid var(--line); padding-top: .6rem; }
+  summary { font-size: 1.05rem; padding: .3rem 0; cursor: pointer; }
+  .set { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin: .6rem 0; }
+  .set .val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.5rem; text-align: center; }
+  .set button { padding: .5rem .9rem; }
+  input { font: inherit; font-size: 1.1rem; width: 6rem; padding: .55rem; border-radius: .5rem; border: 1px solid var(--line);
+          background: transparent; color: var(--fg); -webkit-user-select: text; user-select: text; }
+  .hint { color: var(--muted); font-size: .9rem; line-height: 1.4; }
+  #calMsg { min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Camera tilt</h1><span id="steady" class="steady">–</span></header>
+  <div class="label">lens below horizon · target <span id="targetShown">15.0°</span></div>
+  <div id="pitch" aria-live="polite">–</div>
+  <div class="badges"><span id="heldBadge" class="badge" hidden>HELD</span><span id="calBadge" class="badge" hidden>cal +0.0°</span><span id="demoBadge" class="badge" hidden>DEMO – not a real reading</span></div>
+  <div id="advice" class="advice">press Start</div>
+  <div id="roll">roll –</div>
+  <div id="status" hidden></div>
+  <div class="row">
+    <button id="start" class="primary">Start</button>
+    <button id="hold">Hold</button>
+  </div>
+  <p class="hint">Hold the phone flat against the back of the camera, screen facing you.
+    Hold freezes the reading. <span id="offline" hidden>· ready for offline use</span></p>
+  <details>
+    <summary>Settings</summary>
+    <div class="set"><span>Target tilt</span>
+      <button id="targetDown" aria-label="lower target">−</button><span class="val" id="target">15.0°</span>
+      <button id="targetUp" aria-label="raise target">+</button></div>
+    <div class="set"><span>Calibration offset</span><span class="val" id="offset">+0.0°</span>
+      <button id="calReset">Clear</button></div>
+    <form id="calForm" class="set">
+      <label for="calTrue">Tilt from a test shot</label>
+      <input id="calTrue" inputmode="decimal" placeholder="13.6">
+      <button type="submit">Set</button>
+    </form>
+    <div id="calMsg" class="hint"></div>
+  </details>
+</main>
+<script src="tiltmath.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
